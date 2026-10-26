@@ -2,7 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 swift build -c release
-APP=build/PRCounter.app
+APP="build/PR Counter.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
 cp .build/release/PRCounter "$APP/Contents/MacOS/PRCounter"
@@ -13,7 +13,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <dict>
   <key>CFBundleExecutable</key><string>PRCounter</string>
   <key>CFBundleIdentifier</key><string>com.zifeng.prcounter</string>
-  <key>CFBundleName</key><string>PRCounter</string>
+  <key>CFBundleName</key><string>PR Counter</string>
+  <key>CFBundleDisplayName</key><string>PR Counter</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>1.0</string>
   <key>LSMinimumSystemVersion</key><string>15.0</string>
