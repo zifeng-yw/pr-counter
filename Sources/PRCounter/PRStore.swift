@@ -1,18 +1,68 @@
 import Foundation
 import Observation
 
+enum ChartGranularity: String, CaseIterable, Identifiable, Sendable {
+    case day = "Day"
+    case week = "Week"
+    case month = "Month"
+
+    var id: String { rawValue }
+
+    var calendarComponent: Calendar.Component {
+        switch self {
+        case .day: .day
+        case .week: .weekOfYear
+        case .month: .month
+        }
+    }
+
+    var bucketCount: Int {
+        switch self {
+        case .day: 30
+        case .week: 26
+        case .month: 12
+        }
+    }
+}
+
+struct ChartBucket: Identifiable, Sendable {
+    let start: Date
+    let count: Int
+    var id: Date { start }
+}
+
 struct PRStats: Sendable {
     let login: String
-    let total: Int
-    let open: Int
-    let merged: Int
-    let closed: Int
-    let today: Int
-    let thisMonth: Int
+    let pullRequests: [PullRequestSummary]
+
+    var total: Int { pullRequests.count }
+    var open: Int { pullRequests.count { $0.state == .open } }
+    var merged: Int { pullRequests.count { $0.state == .merged } }
+    var closed: Int { pullRequests.count { $0.state == .closed } }
 
     var mergeRate: Double? {
         let decided = merged + closed
         return decided == 0 ? nil : Double(merged) / Double(decided)
+    }
+
+    func countInCurrent(_ component: Calendar.Component, calendar: Calendar = .current, now: Date = Date()) -> Int {
+        guard let interval = calendar.dateInterval(of: component, for: now) else { return 0 }
+        return pullRequests.count { interval.contains($0.createdAt) }
+    }
+
+    func buckets(for granularity: ChartGranularity, calendar: Calendar = .current, now: Date = Date()) -> [ChartBucket] {
+        let component = granularity.calendarComponent
+        guard let currentStart = calendar.dateInterval(of: component, for: now)?.start else { return [] }
+        let bucketStarts = (0..<granularity.bucketCount).reversed().compactMap {
+            calendar.date(byAdding: component, value: -$0, to: currentStart)
+        }
+        var countsByStart: [Date: Int] = [:]
+        for pullRequest in pullRequests {
+            if let bucketStart = calendar.dateInterval(of: component, for: pullRequest.createdAt)?.start {
+                countsByStart[bucketStart, default: 0] += 1
+            }
+        }
+        return bucketStarts.map { ChartBucket(start: $0, count: countsByStart[$0] ?? 0) }
     }
 }
 
@@ -22,7 +72,7 @@ final class PRStore {
     private(set) var stats: PRStats?
     private(set) var errorMessage: String?
     private(set) var lastUpdated: Date?
-    private let refreshInterval: Duration = .seconds(60)
+    let refreshInterval: Duration = .seconds(60)
     private let client = GitHubClient()
 
     init() {
@@ -36,7 +86,8 @@ final class PRStore {
 
     func refresh() async {
         do {
-            stats = try await client.fetchStats()
+            let history = try await client.fetchHistory()
+            stats = PRStats(login: history.login, pullRequests: history.pullRequests)
             errorMessage = nil
             lastUpdated = Date()
         } catch {

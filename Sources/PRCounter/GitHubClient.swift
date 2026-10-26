@@ -14,53 +14,56 @@ enum GitHubClientError: LocalizedError {
     }
 }
 
+enum PullRequestState: String, Decodable, Sendable {
+    case open = "OPEN"
+    case merged = "MERGED"
+    case closed = "CLOSED"
+}
+
+struct PullRequestSummary: Decodable, Sendable {
+    let createdAt: Date
+    let state: PullRequestState
+}
+
+struct PullRequestHistory: Sendable {
+    let login: String
+    let pullRequests: [PullRequestSummary]
+}
+
 actor GitHubClient {
     private var cachedToken: String?
+    private let pageQuery = """
+    query($cursor: String) {
+      viewer {
+        login
+        pullRequests(first: 100, after: $cursor, orderBy: {field: CREATED_AT, direction: DESC}) {
+          pageInfo { hasNextPage endCursor }
+          nodes { createdAt state }
+        }
+      }
+    }
+    """
 
-    func fetchStats() async throws -> PRStats {
-        let calendar = Calendar.current
-        let now = Date()
-        let todayStart = calendar.startOfDay(for: now)
-        let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: now)) ?? todayStart
-        let query = """
-        query {
-          viewer {
-            login
-            total: pullRequests { totalCount }
-            open: pullRequests(states: OPEN) { totalCount }
-            merged: pullRequests(states: MERGED) { totalCount }
-            closed: pullRequests(states: CLOSED) { totalCount }
-          }
-          today: search(query: "author:@me type:pr created:>=\(Self.isoTimestamp(todayStart))", type: ISSUE) { issueCount }
-          month: search(query: "author:@me type:pr created:>=\(Self.isoTimestamp(monthStart))", type: ISSUE) { issueCount }
-        }
-        """
-        let responseData = try await postGraphQL(query: query)
-        let decoded = try JSONDecoder().decode(StatsResponse.self, from: responseData)
-        if let firstError = decoded.errors?.first {
-            throw GitHubClientError.badResponse(firstError.message)
-        }
-        guard let payload = decoded.data else {
-            throw GitHubClientError.badResponse("Empty GraphQL response")
-        }
-        return PRStats(
-            login: payload.viewer.login,
-            total: payload.viewer.total.totalCount,
-            open: payload.viewer.open.totalCount,
-            merged: payload.viewer.merged.totalCount,
-            closed: payload.viewer.closed.totalCount,
-            today: payload.today.issueCount,
-            thisMonth: payload.month.issueCount
-        )
+    func fetchHistory() async throws -> PullRequestHistory {
+        var collectedPullRequests: [PullRequestSummary] = []
+        var cursor: String?
+        var login = ""
+        repeat {
+            let page = try await fetchPage(after: cursor)
+            login = page.viewer.login
+            collectedPullRequests.append(contentsOf: page.viewer.pullRequests.nodes)
+            cursor = page.viewer.pullRequests.pageInfo.hasNextPage ? page.viewer.pullRequests.pageInfo.endCursor : nil
+        } while cursor != nil
+        return PullRequestHistory(login: login, pullRequests: collectedPullRequests)
     }
 
-    private func postGraphQL(query: String) async throws -> Data {
+    private func fetchPage(after cursor: String?) async throws -> PageResponse.Payload {
         let token = try resolveToken()
         var request = URLRequest(url: URL(string: "https://api.github.com/graphql")!)
         request.httpMethod = "POST"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(["query": query])
+        request.httpBody = try JSONEncoder().encode(GraphQLRequest(query: pageQuery, variables: ["cursor": cursor]))
         let (responseData, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw GitHubClientError.badResponse("No HTTP response")
@@ -71,7 +74,16 @@ actor GitHubClient {
         guard httpResponse.statusCode == 200 else {
             throw GitHubClientError.badResponse("HTTP \(httpResponse.statusCode)")
         }
-        return responseData
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode(PageResponse.self, from: responseData)
+        if let firstError = decoded.errors?.first {
+            throw GitHubClientError.badResponse(firstError.message)
+        }
+        guard let payload = decoded.data else {
+            throw GitHubClientError.badResponse("Empty GraphQL response")
+        }
+        return payload
     }
 
     private func resolveToken() throws -> String {
@@ -100,26 +112,28 @@ actor GitHubClient {
         cachedToken = ghToken
         return ghToken
     }
-
-    private static func isoTimestamp(_ date: Date) -> String {
-        date.formatted(.iso8601.year().month().day().dateSeparator(.dash).time(includingFractionalSeconds: false).timeSeparator(.colon).timeZone(separator: .colon))
-    }
 }
 
-private struct StatsResponse: Decodable {
-    struct Count: Decodable { let totalCount: Int }
-    struct SearchCount: Decodable { let issueCount: Int }
+private struct GraphQLRequest: Encodable {
+    let query: String
+    let variables: [String: String?]
+}
+
+private struct PageResponse: Decodable {
+    struct PageInfo: Decodable {
+        let hasNextPage: Bool
+        let endCursor: String?
+    }
+    struct Connection: Decodable {
+        let pageInfo: PageInfo
+        let nodes: [PullRequestSummary]
+    }
     struct Viewer: Decodable {
         let login: String
-        let total: Count
-        let open: Count
-        let merged: Count
-        let closed: Count
+        let pullRequests: Connection
     }
     struct Payload: Decodable {
         let viewer: Viewer
-        let today: SearchCount
-        let month: SearchCount
     }
     struct GraphQLError: Decodable { let message: String }
 
