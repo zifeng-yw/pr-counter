@@ -5,6 +5,7 @@ enum ChartGranularity: String, CaseIterable, Identifiable, Sendable {
     case day = "Day"
     case week = "Week"
     case month = "Month"
+    case all = "All"
 
     var id: String { rawValue }
 
@@ -12,15 +13,16 @@ enum ChartGranularity: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .day: .day
         case .week: .weekOfYear
-        case .month: .month
+        case .month, .all: .month
         }
     }
 
-    var bucketCount: Int {
+    var fixedBucketCount: Int? {
         switch self {
         case .day: 30
         case .week: 26
         case .month: 12
+        case .all: nil
         }
     }
 }
@@ -45,15 +47,16 @@ struct PRStats: Sendable {
         return decided == 0 ? nil : Double(merged) / Double(decided)
     }
 
-    func countInCurrent(_ component: Calendar.Component, calendar: Calendar = .current, now: Date = Date()) -> Int {
-        guard let interval = calendar.dateInterval(of: component, for: now) else { return 0 }
-        return pullRequests.count { interval.contains($0.createdAt) }
+    func scoped(to buckets: [ChartBucket]) -> PRStats {
+        guard let rangeStart = buckets.first?.start else { return self }
+        return PRStats(login: login, pullRequests: pullRequests.filter { $0.createdAt >= rangeStart })
     }
 
     func buckets(for granularity: ChartGranularity, calendar: Calendar = .current, now: Date = Date()) -> [ChartBucket] {
         let component = granularity.calendarComponent
         guard let currentStart = calendar.dateInterval(of: component, for: now)?.start else { return [] }
-        let bucketStarts = (0..<granularity.bucketCount).reversed().compactMap {
+        let bucketCount = granularity.fixedBucketCount ?? bucketCountSinceFirstPullRequest(component: component, currentStart: currentStart, calendar: calendar)
+        let bucketStarts = (0..<bucketCount).reversed().compactMap {
             calendar.date(byAdding: component, value: -$0, to: currentStart)
         }
         var countsByStart: [Date: Int] = [:]
@@ -63,6 +66,13 @@ struct PRStats: Sendable {
             }
         }
         return bucketStarts.map { ChartBucket(start: $0, count: countsByStart[$0] ?? 0) }
+    }
+
+    private func bucketCountSinceFirstPullRequest(component: Calendar.Component, currentStart: Date, calendar: Calendar) -> Int {
+        guard let firstCreatedAt = pullRequests.map(\.createdAt).min(),
+              let firstStart = calendar.dateInterval(of: component, for: firstCreatedAt)?.start else { return 1 }
+        let elapsed = calendar.dateComponents([component], from: firstStart, to: currentStart).value(for: component) ?? 0
+        return elapsed + 1
     }
 }
 

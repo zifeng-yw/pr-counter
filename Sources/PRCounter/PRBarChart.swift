@@ -99,6 +99,7 @@ struct PRBarChart: View {
         switch granularity {
         case .day, .week: .dateTime.month(.abbreviated).day()
         case .month: .dateTime.month(.abbreviated)
+        case .all: .dateTime.month(.abbreviated).year()
         }
     }
 
@@ -108,7 +109,7 @@ struct PRBarChart: View {
             return start.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
         case .week:
             return "Week of \(start.formatted(.dateTime.month(.abbreviated).day()))"
-        case .month:
+        case .month, .all:
             return start.formatted(.dateTime.month(.wide).year())
         }
     }

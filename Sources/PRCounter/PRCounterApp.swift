@@ -23,7 +23,7 @@ struct PRPanel: View {
         VStack(alignment: .leading, spacing: 14) {
             header
             if let stats = store.stats {
-                statGrid(stats)
+                let buckets = stats.buckets(for: granularity)
                 Picker("Range", selection: $granularity) {
                     ForEach(ChartGranularity.allCases) { option in
                         Text(option.rawValue).tag(option)
@@ -31,7 +31,8 @@ struct PRPanel: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
-                PRBarChart(buckets: stats.buckets(for: granularity), granularity: granularity)
+                statGrid(stats.scoped(to: buckets), bucketCount: buckets.count)
+                PRBarChart(buckets: buckets, granularity: granularity)
                     .id(granularity)
             }
             if let errorMessage = store.errorMessage {
@@ -64,19 +65,46 @@ struct PRPanel: View {
         }
     }
 
-    private func statGrid(_ stats: PRStats) -> some View {
-        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
-            GridRow {
-                StatCell(title: "Open", value: "\(stats.open)")
-                StatCell(title: "Merged", value: "\(stats.merged)")
-                StatCell(title: "Closed", value: "\(stats.closed)")
-            }
-            GridRow {
-                StatCell(title: "Merge rate", value: stats.mergeRate.map { $0.formatted(.percent.precision(.fractionLength(1))) } ?? "–")
-                StatCell(title: "Today", value: "\(stats.countInCurrent(.day))")
-                StatCell(title: "This month", value: "\(stats.countInCurrent(.month))")
+    private func statGrid(_ scopedStats: PRStats, bucketCount: Int) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(rangeTitle(bucketCount: bucketCount))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
+                GridRow {
+                    StatCell(title: "PRs", value: "\(scopedStats.total)")
+                    StatCell(title: "Merged", value: "\(scopedStats.merged)")
+                    StatCell(title: "Merge rate", value: scopedStats.mergeRate.map { $0.formatted(.percent.precision(.fractionLength(1))) } ?? "–")
+                }
+                GridRow {
+                    StatCell(title: "Open", value: "\(scopedStats.open)")
+                    StatCell(title: "Closed", value: "\(scopedStats.closed)")
+                    StatCell(title: averageTitle, value: averageValue(total: scopedStats.total, bucketCount: bucketCount))
+                }
             }
         }
+    }
+
+    private func rangeTitle(bucketCount: Int) -> String {
+        switch granularity {
+        case .day: "Last \(bucketCount) days"
+        case .week: "Last \(bucketCount) weeks"
+        case .month: "Last \(bucketCount) months"
+        case .all: "All time · \(bucketCount) months"
+        }
+    }
+
+    private var averageTitle: String {
+        switch granularity {
+        case .day: "Avg / day"
+        case .week: "Avg / week"
+        case .month, .all: "Avg / month"
+        }
+    }
+
+    private func averageValue(total: Int, bucketCount: Int) -> String {
+        guard bucketCount > 0 else { return "–" }
+        return (Double(total) / Double(bucketCount)).formatted(.number.precision(.fractionLength(1)))
     }
 
     private var footer: some View {
