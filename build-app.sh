@@ -2,7 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 swift build -c release
-APP="build/PR Counter.app"
+APP="build.noindex/PR Counter.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/PRCounter "$APP/Contents/MacOS/PRCounter"
