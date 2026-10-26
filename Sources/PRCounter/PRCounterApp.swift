@@ -12,12 +12,19 @@ struct PRCounterApp: App {
                 .labelStyle(.titleAndIcon)
         }
         .menuBarExtraStyle(.window)
+
+        Window("Settings", id: "settings") {
+            SettingsView()
+        }
+        .windowResizability(.contentSize)
+        .defaultLaunchBehavior(.suppressed)
     }
 }
 
 struct PRPanel: View {
     let store: PRStore
     @State private var granularity: ChartGranularity = .day
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -124,6 +131,14 @@ struct PRPanel: View {
                 Image(systemName: "safari")
             }
             .help("Open on GitHub")
+            Button {
+                openWindow(id: "settings")
+                NSApplication.shared.activate()
+            } label: {
+                Image(systemName: "gearshape")
+            }
+            .keyboardShortcut(",")
+            .help("Settings")
             Button {
                 Task { await store.refresh() }
             } label: {
