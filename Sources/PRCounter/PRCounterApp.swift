@@ -25,6 +25,9 @@ struct PRMenu: View {
             Text("Open: \(stats.open)")
             Text("Merged: \(stats.merged)")
             Text("Closed: \(stats.closed)")
+            if let mergeRate = stats.mergeRate {
+                Text("Merge rate: \(mergeRate.formatted(.percent.precision(.fractionLength(1))))")
+            }
             Divider()
             Text("Today: \(stats.today)")
             Text("This month: \(stats.thisMonth)")

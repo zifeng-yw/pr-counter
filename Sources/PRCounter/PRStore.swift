@@ -9,6 +9,11 @@ struct PRStats: Sendable {
     let closed: Int
     let today: Int
     let thisMonth: Int
+
+    var mergeRate: Double? {
+        let decided = merged + closed
+        return decided == 0 ? nil : Double(merged) / Double(decided)
+    }
 }
 
 @MainActor
