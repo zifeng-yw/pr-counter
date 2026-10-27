@@ -63,12 +63,20 @@ struct PRPanel: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(store.stats.map { $0.profile.name ?? $0.profile.login } ?? "GitHub")
                     .font(.headline)
-                Text(store.stats.map { "@\($0.profile.login) · \($0.total) pull requests" } ?? "Loading…")
+                Text(store.stats.map { "@\($0.profile.login)" } ?? "Loading…")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                    .monospacedDigit()
             }
             Spacer()
+            VStack(alignment: .trailing, spacing: 0) {
+                Text(store.stats.map { "\($0.total)" } ?? "…")
+                    .font(.system(size: 34, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+                Text("pull requests")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
