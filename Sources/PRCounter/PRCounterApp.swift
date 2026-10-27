@@ -42,11 +42,6 @@ struct PRPanel: View {
                 PRBarChart(buckets: buckets, granularity: granularity)
                     .id(granularity)
             }
-            if let errorMessage = store.errorMessage {
-                Text(errorMessage)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-            }
             Divider()
             footer
         }
@@ -116,7 +111,14 @@ struct PRPanel: View {
 
     private var footer: some View {
         HStack {
-            if let lastUpdated = store.lastUpdated {
+            if let errorMessage = store.errorMessage {
+                Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .help(errorMessage)
+            } else if let lastUpdated = store.lastUpdated {
                 Text("Updated \(lastUpdated.formatted(date: .omitted, time: .shortened))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
