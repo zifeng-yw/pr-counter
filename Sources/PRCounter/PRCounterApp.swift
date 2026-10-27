@@ -50,20 +50,25 @@ struct PRPanel: View {
     }
 
     private var header: some View {
-        HStack(alignment: .firstTextBaseline) {
+        HStack(spacing: 12) {
+            AsyncImage(url: store.stats?.profile.avatarURL) { avatarImage in
+                avatarImage.resizable().scaledToFill()
+            } placeholder: {
+                Image(systemName: "person.crop.circle.fill")
+                    .resizable()
+                    .foregroundStyle(.tertiary)
+            }
+            .frame(width: 40, height: 40)
+            .clipShape(Circle())
             VStack(alignment: .leading, spacing: 2) {
-                Text(store.stats.map { "@\($0.login)" } ?? "GitHub")
+                Text(store.stats.map { $0.profile.name ?? $0.profile.login } ?? "GitHub")
+                    .font(.headline)
+                Text(store.stats.map { "@\($0.profile.login) · \($0.total) pull requests" } ?? "Loading…")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                Text(store.stats.map { "\($0.total)" } ?? "…")
-                    .font(.system(size: 34, weight: .semibold, design: .rounded))
                     .monospacedDigit()
-                    .contentTransition(.numericText())
             }
             Spacer()
-            Text("pull requests")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
         }
     }
 
@@ -125,7 +130,7 @@ struct PRPanel: View {
             }
             Spacer()
             Button {
-                if let login = store.stats?.login,
+                if let login = store.stats?.profile.login,
                    let url = URL(string: "https://github.com/pulls?q=is%3Apr+author%3A\(login)") {
                     NSWorkspace.shared.open(url)
                 }

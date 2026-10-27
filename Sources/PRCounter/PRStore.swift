@@ -34,7 +34,7 @@ struct ChartBucket: Identifiable, Sendable {
 }
 
 struct PRStats: Sendable {
-    let login: String
+    let profile: GitHubProfile
     let pullRequests: [PullRequestSummary]
 
     var total: Int { pullRequests.count }
@@ -49,7 +49,7 @@ struct PRStats: Sendable {
 
     func scoped(to buckets: [ChartBucket]) -> PRStats {
         guard let rangeStart = buckets.first?.start else { return self }
-        return PRStats(login: login, pullRequests: pullRequests.filter { $0.createdAt >= rangeStart })
+        return PRStats(profile: profile, pullRequests: pullRequests.filter { $0.createdAt >= rangeStart })
     }
 
     func buckets(for granularity: ChartGranularity, calendar: Calendar = .current, now: Date = Date()) -> [ChartBucket] {
@@ -97,7 +97,7 @@ final class PRStore {
     func refresh() async {
         do {
             let history = try await client.fetchHistory()
-            stats = PRStats(login: history.login, pullRequests: history.pullRequests)
+            stats = PRStats(profile: history.profile, pullRequests: history.pullRequests)
             errorMessage = nil
             lastUpdated = Date()
         } catch {

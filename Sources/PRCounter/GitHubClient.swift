@@ -25,8 +25,14 @@ struct PullRequestSummary: Decodable, Sendable {
     let state: PullRequestState
 }
 
-struct PullRequestHistory: Sendable {
+struct GitHubProfile: Sendable {
     let login: String
+    let name: String?
+    let avatarURL: URL
+}
+
+struct PullRequestHistory: Sendable {
+    let profile: GitHubProfile
     let pullRequests: [PullRequestSummary]
 }
 
@@ -36,6 +42,8 @@ actor GitHubClient {
     query($cursor: String) {
       viewer {
         login
+        name
+        avatarUrl(size: 120)
         pullRequests(first: 100, after: $cursor, orderBy: {field: CREATED_AT, direction: DESC}) {
           pageInfo { hasNextPage endCursor }
           nodes { createdAt state }
@@ -47,14 +55,17 @@ actor GitHubClient {
     func fetchHistory() async throws -> PullRequestHistory {
         var collectedPullRequests: [PullRequestSummary] = []
         var cursor: String?
-        var login = ""
+        var profile: GitHubProfile?
         repeat {
             let page = try await fetchPage(after: cursor)
-            login = page.viewer.login
+            profile = GitHubProfile(login: page.viewer.login, name: page.viewer.name, avatarURL: page.viewer.avatarUrl)
             collectedPullRequests.append(contentsOf: page.viewer.pullRequests.nodes)
             cursor = page.viewer.pullRequests.pageInfo.hasNextPage ? page.viewer.pullRequests.pageInfo.endCursor : nil
         } while cursor != nil
-        return PullRequestHistory(login: login, pullRequests: collectedPullRequests)
+        guard let profile else {
+            throw GitHubClientError.badResponse("Missing viewer profile")
+        }
+        return PullRequestHistory(profile: profile, pullRequests: collectedPullRequests)
     }
 
     private func fetchPage(after cursor: String?) async throws -> PageResponse.Payload {
@@ -130,6 +141,8 @@ private struct PageResponse: Decodable {
     }
     struct Viewer: Decodable {
         let login: String
+        let name: String?
+        let avatarUrl: URL
         let pullRequests: Connection
     }
     struct Payload: Decodable {
