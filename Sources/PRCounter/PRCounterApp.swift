@@ -58,29 +58,24 @@ struct PRPanel: View {
                     .resizable()
                     .foregroundStyle(.tertiary)
             }
-            .frame(width: 52, height: 52)
+            .frame(width: 40, height: 40)
             .clipShape(Circle())
-            Grid(horizontalSpacing: 8, verticalSpacing: 0) {
-                GridRow(alignment: .firstTextBaseline) {
-                    Text(store.stats.map { $0.profile.name ?? $0.profile.login } ?? "GitHub")
-                        .font(.title3.weight(.semibold))
-                        .lineLimit(1)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Text(store.stats.map { "\($0.total)" } ?? "…")
-                        .font(.system(size: 34, weight: .semibold, design: .rounded))
-                        .monospacedDigit()
-                        .contentTransition(.numericText())
-                        .gridColumnAlignment(.trailing)
-                }
-                GridRow(alignment: .firstTextBaseline) {
-                    Text(store.stats.map { "@\($0.profile.login)" } ?? "Loading…")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Text("pull requests")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(store.stats.map { $0.profile.name ?? $0.profile.login } ?? "GitHub")
+                    .font(.headline)
+                Text(store.stats.map { "@\($0.profile.login)" } ?? "Loading…")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(store.stats.map { "\($0.total)" } ?? "…")
+                    .font(.system(size: 28, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+                Text("PRs")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
             }
         }
     }
