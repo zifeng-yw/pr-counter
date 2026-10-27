@@ -58,24 +58,29 @@ struct PRPanel: View {
                     .resizable()
                     .foregroundStyle(.tertiary)
             }
-            .frame(width: 40, height: 40)
+            .frame(width: 52, height: 52)
             .clipShape(Circle())
-            VStack(alignment: .leading, spacing: 2) {
-                Text(store.stats.map { $0.profile.name ?? $0.profile.login } ?? "GitHub")
-                    .font(.headline)
-                Text(store.stats.map { "@\($0.profile.login)" } ?? "Loading…")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 0) {
-                Text(store.stats.map { "\($0.total)" } ?? "…")
-                    .font(.system(size: 34, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .contentTransition(.numericText())
-                Text("pull requests")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            Grid(horizontalSpacing: 8, verticalSpacing: 0) {
+                GridRow(alignment: .firstTextBaseline) {
+                    Text(store.stats.map { $0.profile.name ?? $0.profile.login } ?? "GitHub")
+                        .font(.title3.weight(.semibold))
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(store.stats.map { "\($0.total)" } ?? "…")
+                        .font(.system(size: 34, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
+                        .gridColumnAlignment(.trailing)
+                }
+                GridRow(alignment: .firstTextBaseline) {
+                    Text(store.stats.map { "@\($0.profile.login)" } ?? "Loading…")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text("pull requests")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }
