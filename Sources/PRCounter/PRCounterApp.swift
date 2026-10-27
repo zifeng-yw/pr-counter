@@ -63,9 +63,13 @@ struct PRPanel: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(store.stats.map { $0.profile.name ?? $0.profile.login } ?? "GitHub")
                     .font(.headline)
-                Text(store.stats.map { "@\($0.profile.login)" } ?? "Loading…")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                if let profile = store.stats?.profile {
+                    ProfileLink(login: profile.login)
+                } else {
+                    Text("Loading…")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
             }
             Spacer()
             HStack(alignment: .firstTextBaseline, spacing: 3) {
@@ -170,6 +174,24 @@ struct PRPanel: View {
             .help("Quit")
         }
         .buttonStyle(.borderless)
+    }
+}
+
+struct ProfileLink: View {
+    let login: String
+    @State private var isHovered = false
+
+    var body: some View {
+        Link(destination: URL(string: "https://github.com/\(login)")!) {
+            Text("@\(login)")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .underline(isHovered)
+        }
+        .buttonStyle(.plain)
+        .pointerStyle(.link)
+        .onHover { isHovered = $0 }
+        .help("Open GitHub profile")
     }
 }
 
