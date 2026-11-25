@@ -1,11 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")"
-swift build -c release
+swift build -c release --arch arm64 --arch x86_64
+BIN_PATH=$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)
 APP="build.noindex/PR Counter.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp .build/release/PRCounter "$APP/Contents/MacOS/PRCounter"
+cp "$BIN_PATH/PRCounter" "$APP/Contents/MacOS/PRCounter"
 ICON_BUILD_DIR=$(mktemp -d)
 xcrun actool Resources/AppIcon.icon \
   --compile "$APP/Contents/Resources" \
